@@ -113,6 +113,75 @@ run-shell ~/.config/tmux/plugins/peek/tmux/peek.tmux
 
 `claude`, `codex`, `aider`, `hermes`, `opencode`, `gemini`, `goose`, `amp`, `cursor`, `cline`
 
+## Reliable mode — `wrap`
+
+For 100% reliable agent identity (useful when agents run via wrapper scripts):
+
+```bash
+# Instead of running claude directly, use:
+tmux.peek wrap claude
+
+# With arguments:
+tmux.peek wrap claude -- --model sonnet task.md
+```
+
+The wrap command records the agent's identity in `~/.local/state/tmux.peek/wrapped/<pane>.json`. The scanner reads this file first, so identity is always correct regardless of the process tree.
+
+## Agent hook integration
+
+### Claude Code
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "Stop": [{ "command": "tmux.peek hook --agent claude --event stop" }],
+    "Notification": [{ "command": "tmux.peek hook --agent claude --event notification --message \"$CLAUDE_NOTIFICATION\"" }]
+  }
+}
+```
+
+See `hooks/claude-code-settings.json` for a ready-to-merge snippet.  
+When hooks fire, the cache updates immediately with confidence 0.99 — no waiting for the 5s scan cycle.
+
+### OpenCode / Aider
+
+See `hooks/opencode-notify.sh` and `hooks/aider-notify.sh`. The simplest approach for any agent is just `tmux.peek wrap <agent>`.
+
+## Configuration
+
+```bash
+tmux.peek config --init   # write default config to ~/.config/tmux.peek/config.toml
+tmux.peek config          # show current settings
+tmux.peek config --show   # print config file contents
+```
+
+Example `~/.config/tmux.peek/config.toml`:
+
+```toml
+extra_agents = ["my-internal-bot"]
+exclude_sessions = ["scratch"]
+status_format = "minimal"   # emoji | text | minimal
+
+[[attention_patterns]]
+pattern = "waiting for review"
+reason  = "review needed"
+```
+
+## Shell completions
+
+```bash
+# zsh
+tmux.peek completions zsh >> ~/.zshrc
+
+# bash
+tmux.peek completions bash >> ~/.bashrc
+
+# fish
+tmux.peek completions fish > ~/.config/fish/completions/tmux.peek.fish
+```
+
 ## What it is not
 
 Not an orchestrator. Not a web dashboard. Not another agent runner. Read-only by default (except `kill`).
