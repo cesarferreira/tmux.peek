@@ -6,6 +6,7 @@ use ratatui::{
     Frame,
 };
 
+use crate::ansi;
 use crate::types::AgentStatus;
 use super::app::{App, AppMode};
 
@@ -22,8 +23,8 @@ pub fn draw(frame: &mut Frame, app: &App) {
         Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Min(6),
-                Constraint::Length(10),
+                Constraint::Percentage(55),
+                Constraint::Percentage(42),
                 Constraint::Length(1),
             ])
             .split(area)
@@ -193,14 +194,17 @@ fn draw_preview(frame: &mut Frame, app: &App, area: Rect) {
                 pane.repo_display(),
                 pane.pane_id
             );
-            let lines: Vec<Line> = pane
+            let visible_rows = area.height.saturating_sub(2) as usize;
+            let raw_text = pane
                 .last_output_lines
                 .iter()
                 .rev()
-                .take(area.height.saturating_sub(2) as usize)
+                .take(visible_rows)
                 .rev()
-                .map(|l| Line::from(Span::raw(l.clone())))
-                .collect();
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("\n");
+            let lines: Vec<Line> = ansi::parse_ansi(&raw_text);
             (t, lines)
         }
         None => (" preview ".to_string(), vec![]),

@@ -55,6 +55,7 @@ pub fn capture_pane(pane_id: &str, lines: u32) -> Result<Vec<String>> {
         .args([
             "capture-pane",
             "-p",
+            "-e",            // include ANSI escape sequences
             "-t",
             pane_id,
             "-S",
@@ -67,13 +68,9 @@ pub fn capture_pane(pane_id: &str, lines: u32) -> Result<Vec<String>> {
         return Ok(Vec::new());
     }
 
-    let raw = strip_ansi(&output.stdout);
-    let result: Vec<String> = raw
-        .lines()
-        .map(|l| l.to_string())
-        .collect();
-
-    Ok(result)
+    // Return raw ANSI output — callers strip when needed for text matching
+    let raw = String::from_utf8_lossy(&output.stdout).into_owned();
+    Ok(raw.lines().map(|l| l.to_string()).collect())
 }
 
 pub fn jump_to_pane(session: &str, window_id: &str, pane_id: &str) -> Result<()> {
@@ -116,7 +113,7 @@ pub fn current_pane_id() -> Option<String> {
     std::env::var("TMUX_PANE").ok()
 }
 
-fn strip_ansi(input: &[u8]) -> String {
-    let stripped = strip_ansi_escapes::strip(input);
+pub fn strip_ansi_str(s: &str) -> String {
+    let stripped = strip_ansi_escapes::strip(s.as_bytes());
     String::from_utf8_lossy(&stripped).into_owned()
 }

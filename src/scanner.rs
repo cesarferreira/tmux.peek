@@ -64,7 +64,13 @@ pub fn scan_with_config(config: &Config) -> Result<State> {
 
         let agent_name = agent_info.map(|(name, _)| name);
         let git_info = git::get_git_info(&raw.current_path);
-        let output_lines = tmux::capture_pane(&raw.pane_id, 80).unwrap_or_default();
+
+        // Capture with ANSI (for display), strip for classification
+        let output_lines_raw = tmux::capture_pane(&raw.pane_id, 80).unwrap_or_default();
+        let output_lines_stripped: Vec<String> = output_lines_raw
+            .iter()
+            .map(|l| tmux::strip_ansi_str(l))
+            .collect();
 
         let cmd = agent_name
             .as_deref()
@@ -72,7 +78,7 @@ pub fn scan_with_config(config: &Config) -> Result<State> {
 
         let classification = classifier::classify_with_config(
             cmd,
-            &output_lines,
+            &output_lines_stripped,
             agent_name.is_some(),
             Some(config),
         );
@@ -99,7 +105,7 @@ pub fn scan_with_config(config: &Config) -> Result<State> {
             status: classification.status,
             status_reason: classification.reason,
             confidence: classification.confidence,
-            last_output_lines: output_lines,
+            last_output_lines: output_lines_raw,
             last_seen: now,
             status_since,
         });
