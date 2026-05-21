@@ -1,6 +1,7 @@
 use anyhow::Result;
 
 use crate::cache;
+use crate::config::Config;
 use crate::scanner;
 use crate::types::State;
 
@@ -19,29 +20,45 @@ pub fn run(refresh: bool) -> Result<()> {
         })
     };
 
-    println!("{}", format_status_line(&state));
+    let cfg = Config::load();
+    println!("{}", format_status_line(&state, &cfg.status_format));
     Ok(())
 }
 
-pub fn format_status_line(state: &State) -> String {
+pub fn format_status_line(state: &State, format: &str) -> String {
     let attention = state.attention_count();
     let running = state.running_count();
     let done = state.done_count();
 
     if attention == 0 && running == 0 && done == 0 {
-        return "🤖 –".to_string();
+        return match format {
+            "minimal" => String::new(),
+            "text" => String::new(),
+            _ => "🤖 –".to_string(),
+        };
     }
 
-    let mut parts = Vec::new();
-    if attention > 0 {
-        parts.push(format!("{}!", attention));
+    match format {
+        "text" => {
+            let mut parts = Vec::new();
+            if attention > 0 { parts.push(format!("{} need-you", attention)); }
+            if running > 0   { parts.push(format!("{} running", running)); }
+            if done > 0      { parts.push(format!("{} done", done)); }
+            format!("agents: {}", parts.join("  "))
+        }
+        "minimal" => {
+            let mut parts = Vec::new();
+            if attention > 0 { parts.push(format!("{}!", attention)); }
+            if running > 0   { parts.push(format!("{}…", running)); }
+            parts.join(" ")
+        }
+        _ => {
+            // emoji (default)
+            let mut parts = Vec::new();
+            if attention > 0 { parts.push(format!("{}!", attention)); }
+            if running > 0   { parts.push(format!("{}…", running)); }
+            if done > 0      { parts.push(format!("{}✓", done)); }
+            format!("🤖 {}", parts.join(" · "))
+        }
     }
-    if running > 0 {
-        parts.push(format!("{}…", running));
-    }
-    if done > 0 {
-        parts.push(format!("{}✓", done));
-    }
-
-    format!("🤖 {}", parts.join(" · "))
 }

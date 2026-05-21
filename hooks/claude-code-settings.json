@@ -1,0 +1,15 @@
+{
+  "_comment": "Add these hooks to ~/.claude/settings.json or .claude/settings.json",
+  "hooks": {
+    "Stop": [
+      {
+        "command": "tmux.peek hook --agent claude --event stop"
+      }
+    ],
+    "Notification": [
+      {
+        "command": "tmux.peek hook --agent claude --event notification --message \"$CLAUDE_NOTIFICATION\""
+      }
+    ]
+  }
+}

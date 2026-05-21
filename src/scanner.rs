@@ -2,7 +2,9 @@ use anyhow::Result;
 use chrono::Utc;
 
 use crate::cache;
-use crate::classifier::{self, is_shell};
+use crate::classifier::{self, is_known_agent_with_extras, is_shell};
+use crate::commands::wrap as wrap_cmd;
+use crate::config::Config;
 use crate::git;
 use crate::processes;
 use crate::tmux;
@@ -10,6 +12,10 @@ use crate::types::{AgentPane, State};
 
 /// Scan all tmux panes, classify agents, and return a fresh State.
 pub fn scan() -> Result<State> {
+    scan_with_config(&Config::load())
+}
+
+pub fn scan_with_config(config: &Config) -> Result<State> {
     let raw_panes = tmux::list_panes()?;
     let current_pane = tmux::current_pane_id();
     let all_procs = processes::get_all_processes();
@@ -30,12 +36,27 @@ pub fn scan() -> Result<State> {
             continue;
         }
 
-        let agent_info = processes::detect_agent(raw.pane_pid, &raw.current_command, &all_procs);
+        // Apply session filters from config
+        if !config.session_allowed(&raw.session_name) {
+            continue;
+        }
+
+        // Prefer wrap-record identity (100% reliable) over process-tree heuristics
+        let wrap_agent = wrap_cmd::load_wrap_record(&raw.pane_id);
+        let agent_info = wrap_agent.map(|(name, direct)| (name, direct)).or_else(|| {
+            processes::detect_agent_with_extras(
+                raw.pane_pid,
+                &raw.current_command,
+                &all_procs,
+                &config.extra_agents,
+            )
+        });
 
         // Only include panes that have an agent (current or descendant)
         // OR panes where the shell command isn't a plain shell (could be a wrapper)
         let is_agent_pane = agent_info.is_some()
-            || (!is_shell(&raw.current_command) && !raw.current_command.is_empty());
+            || (!is_shell(&raw.current_command) && !raw.current_command.is_empty()
+                && is_known_agent_with_extras(&raw.current_command, &config.extra_agents));
 
         if !is_agent_pane {
             continue;
@@ -49,8 +70,12 @@ pub fn scan() -> Result<State> {
             .as_deref()
             .unwrap_or(&raw.current_command);
 
-        let classification =
-            classifier::classify(cmd, &output_lines, agent_name.is_some());
+        let classification = classifier::classify_with_config(
+            cmd,
+            &output_lines,
+            agent_name.is_some(),
+            Some(config),
+        );
 
         let now = Utc::now();
 

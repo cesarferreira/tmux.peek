@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Parser)]
 #[command(
@@ -60,4 +60,55 @@ pub enum Command {
         #[arg(value_name = "DIR")]
         dir: Option<String>,
     },
+
+    /// Wrap an agent command for reliable lifecycle tracking
+    Wrap {
+        /// Agent binary to run (e.g. claude, codex, aider)
+        #[arg(value_name = "AGENT")]
+        agent: String,
+
+        /// Arguments forwarded to the agent
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
+    /// Receive a lifecycle event from an agent hook script
+    Hook {
+        /// Agent name
+        #[arg(long)]
+        agent: String,
+
+        /// Event type: start | stop | notification | tool_use
+        #[arg(long)]
+        event: String,
+
+        /// Optional message / payload
+        #[arg(long)]
+        message: Option<String>,
+    },
+
+    /// Manage configuration
+    Config {
+        /// Write a default config file
+        #[arg(long)]
+        init: bool,
+
+        /// Print the current config file
+        #[arg(long)]
+        show: bool,
+    },
+
+    /// Print shell completions
+    Completions {
+        /// Shell to generate completions for
+        shell: Shell,
+    },
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum Shell {
+    Bash,
+    Zsh,
+    Fish,
+    PowerShell,
 }

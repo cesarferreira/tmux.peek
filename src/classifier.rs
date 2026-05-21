@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::types::AgentStatus;
 use regex::Regex;
 
@@ -7,7 +8,17 @@ pub struct ClassificationResult {
     pub confidence: f32,
 }
 
+#[allow(dead_code)]
 pub fn classify(command: &str, output_lines: &[String], is_agent: bool) -> ClassificationResult {
+    classify_with_config(command, output_lines, is_agent, None)
+}
+
+pub fn classify_with_config(
+    command: &str,
+    output_lines: &[String],
+    is_agent: bool,
+    config: Option<&Config>,
+) -> ClassificationResult {
     if let Some(result) = check_needs_attention(output_lines) {
         return result;
     }
@@ -32,11 +43,44 @@ pub fn classify(command: &str, output_lines: &[String], is_agent: bool) -> Class
         return result;
     }
 
+    // User-supplied custom patterns (from config)
+    if let Some(cfg) = config {
+        if let Some(result) = check_custom_patterns(output_lines, cfg) {
+            return result;
+        }
+    }
+
     ClassificationResult {
         status: AgentStatus::Unknown,
         reason: "no clear signal".to_string(),
         confidence: 0.40,
     }
+}
+
+fn check_custom_patterns(lines: &[String], config: &Config) -> Option<ClassificationResult> {
+    let tail: String = lines.iter().rev().take(8).cloned().collect::<Vec<_>>().join("\n");
+
+    for p in &config.attention_patterns {
+        if matches_pattern(&tail, &p.pattern) {
+            return Some(ClassificationResult {
+                status: AgentStatus::NeedsAttention,
+                reason: p.reason.clone(),
+                confidence: 0.85,
+            });
+        }
+    }
+
+    for p in &config.done_patterns {
+        if matches_pattern(&tail, &p.pattern) {
+            return Some(ClassificationResult {
+                status: AgentStatus::Done,
+                reason: p.reason.clone(),
+                confidence: 0.85,
+            });
+        }
+    }
+
+    None
 }
 
 fn check_needs_attention(lines: &[String]) -> Option<ClassificationResult> {
@@ -186,12 +230,17 @@ fn check_running(lines: &[String], is_agent: bool) -> Option<ClassificationResul
 }
 
 pub fn is_known_agent(command: &str) -> bool {
+    is_known_agent_with_extras(command, &[])
+}
+
+pub fn is_known_agent_with_extras(command: &str, extras: &[String]) -> bool {
     let cmd = command
         .split('/')
         .next_back()
         .unwrap_or(command)
         .to_lowercase();
-    matches!(
+
+    let builtin = matches!(
         cmd.as_str(),
         "claude"
             | "codex"
@@ -204,7 +253,9 @@ pub fn is_known_agent(command: &str) -> bool {
             | "goose"
             | "amp"
             | "gemini"
-    )
+    );
+
+    builtin || extras.iter().any(|e| e.to_lowercase() == cmd)
 }
 
 pub fn is_shell(command: &str) -> bool {

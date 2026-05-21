@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::process::Command;
 
-use crate::classifier::{is_known_agent, is_shell};
+use crate::classifier::{is_known_agent, is_known_agent_with_extras, is_shell};
 
 /// Builds a map of pid -> (ppid, comm) from `ps` output.
 pub fn get_all_processes() -> HashMap<u32, (u32, String)> {
@@ -79,22 +79,32 @@ pub fn find_agent_descendant(
 /// For a given pane, determine the running agent name if any.
 /// Returns (agent_name, is_directly_agent) — the bool is true when
 /// pane_current_command itself is the agent, false when found via process tree.
+#[allow(dead_code)]
 pub fn detect_agent(
     pane_pid: u32,
     current_command: &str,
     all_procs: &HashMap<u32, (u32, String)>,
+) -> Option<(String, bool)> {
+    detect_agent_with_extras(pane_pid, current_command, all_procs, &[])
+}
+
+pub fn detect_agent_with_extras(
+    pane_pid: u32,
+    current_command: &str,
+    all_procs: &HashMap<u32, (u32, String)>,
+    extras: &[String],
 ) -> Option<(String, bool)> {
     let base = current_command
         .split('/')
         .next_back()
         .unwrap_or(current_command);
 
-    if is_known_agent(base) {
+    if is_known_agent_with_extras(base, extras) {
         return Some((base.to_lowercase(), true));
     }
 
     // If the foreground command is a shell or generic process, look at children
-    if is_shell(base) || !is_known_agent(base) {
+    if is_shell(base) || !is_known_agent_with_extras(base, extras) {
         if let Some(name) = find_agent_descendant(pane_pid, all_procs) {
             return Some((name, false));
         }

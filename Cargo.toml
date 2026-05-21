@@ -21,3 +21,5 @@ anyhow = "1"
 regex = "1"
 strip-ansi-escapes = "0.2"
 chrono = { version = "0.4", features = ["serde"] }
+toml = "0.8"
+clap_complete = "4"

@@ -1,0 +1,38 @@
+# tmux.peek configuration
+# Location: ~/.config/tmux.peek/config.toml
+# Run `tmux.peek config --init` to create this file.
+
+# ── Agent detection ──────────────────────────────────────────────────────────
+# Add binary names beyond the built-in list (claude, codex, aider, opencode,
+# hermes, gemini, goose, amp, cursor, cline).
+extra_agents = []
+
+# ── Session filtering ─────────────────────────────────────────────────────────
+# Skip these tmux session names entirely.
+exclude_sessions = []
+
+# Only watch these sessions (empty = watch all sessions).
+include_sessions = []
+
+# ── Custom classifier patterns ────────────────────────────────────────────────
+# These are matched against the last ~8 lines of pane output (case-insensitive
+# regex). Add patterns specific to your team's tooling.
+
+# [[attention_patterns]]
+# pattern = "waiting for review"
+# reason  = "review needed"
+
+# [[attention_patterns]]
+# pattern = "manual step required"
+# reason  = "manual step"
+
+# [[done_patterns]]
+# pattern = "deployment complete"
+# reason  = "deployed"
+
+# ── Status line ───────────────────────────────────────────────────────────────
+# Format for `tmux.peek status`. Options:
+#   "emoji"   → 🤖 2! · 3… · 1✓
+#   "text"    → agents: 2 need-you  3 running  1 done
+#   "minimal" → 2! 3…
+status_format = "emoji"
