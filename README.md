@@ -20,14 +20,14 @@
 
   <br>
 
-  <img src="assets/recording.gif" width="880" alt="tmux.peek in action">
+  <img src="assets/recording.gif" width="880" alt="tmuxpeek in action">
 </div>
 
 ---
 
 ## Why tmux.peek
 
-When you're running multiple AI agents across tmux panes — Claude Code, OpenCode, Aider, Codex — you constantly switch between them to check if they're still working or waiting for input. **tmux.peek** watches all of them and tells you which ones need your attention.
+When you're running multiple AI agents across tmux panes — Claude Code, OpenCode, Aider, Codex — you constantly switch between them to check if they're still working or waiting for input. **tmuxpeek** watches all of them and tells you which ones need your attention.
 
 - **Attention at a glance.** Agents blocked on a question, permission prompt, or error rise to the top.
 - **Live activity reasons.** See what each agent is actually doing: `edit main.rs`, `$ cargo build`, `Reviewed PR #360…`.
@@ -39,18 +39,18 @@ When you're running multiple AI agents across tmux panes — Claude Code, OpenCo
 ## Install
 
 ```bash
-git clone https://github.com/cesarferreira/tmux.peek
-cd tmux.peek
+git clone https://github.com/cesarferreira/tmuxpeek
+cd tmuxpeek
 bash install.sh
 ```
 
-This builds a release binary and installs it to `~/.local/bin/tmuxpeek` with a `tmux.peek` symlink. Make sure `~/.local/bin` is in your `PATH`.
+This builds a release binary and installs it to `~/.local/bin/tmuxpeek` with a `tmuxpeek` symlink. Make sure `~/.local/bin` is in your `PATH`.
 
 Add to `~/.tmux.conf` to open as a side pane or status line widget:
 
 ```tmux
-bind-key G split-window -h -l 48 'tmux.peek tui'
-set -g status-right '#(tmux.peek status) | %H:%M'
+bind-key G split-window -h -l 48 'tmuxpeek tui'
+set -g status-right '#(tmuxpeek status) | %H:%M'
 ```
 
 <a id="quickstart"></a>
@@ -59,31 +59,31 @@ set -g status-right '#(tmux.peek status) | %H:%M'
 Open the TUI inside your tmux session:
 
 ```bash
-tmux.peek
+tmuxpeek
 ```
 
 Check agent status in the terminal (no TUI):
 
 ```bash
-tmux.peek list
+tmuxpeek list
 ```
 
 Take a JSON snapshot of all agent panes:
 
 ```bash
-tmux.peek snapshot
+tmuxpeek snapshot
 ```
 
 Watch continuously, refreshing every 5 seconds:
 
 ```bash
-tmux.peek watch
+tmuxpeek watch
 ```
 
 <a id="hooks"></a>
 ## Hooks
 
-Hooks give tmux.peek accurate, real-time activity data instead of relying on output parsing. When Claude Code calls a tool, it writes exactly what it's doing to tmux.peek's state — `edit main.rs`, `$ cargo test`, `web: docs.rust-lang.org` — and the TUI picks it up immediately.
+Hooks give tmuxpeek accurate, real-time activity data instead of relying on output parsing. When Claude Code calls a tool, it writes exactly what it's doing to tmuxpeek's state — `edit main.rs`, `$ cargo test`, `web: docs.rust-lang.org` — and the TUI picks it up immediately.
 
 ### Claude Code
 
@@ -95,19 +95,19 @@ Add to `~/.claude/settings.json`:
     "PreToolUse": [
       {
         "matcher": "",
-        "hooks": [{ "type": "command", "command": "tmux.peek hook --agent claude --event pre_tool_use", "timeout": 5 }]
+        "hooks": [{ "type": "command", "command": "tmuxpeek hook --agent claude --event pre_tool_use", "timeout": 5 }]
       }
     ],
     "Stop": [
       {
         "matcher": "",
-        "hooks": [{ "type": "command", "command": "tmux.peek hook --agent claude --event stop" }]
+        "hooks": [{ "type": "command", "command": "tmuxpeek hook --agent claude --event stop" }]
       }
     ],
     "Notification": [
       {
         "matcher": "",
-        "hooks": [{ "type": "command", "command": "tmux.peek hook --agent claude --event notification --message \"$CLAUDE_NOTIFICATION\"" }]
+        "hooks": [{ "type": "command", "command": "tmuxpeek hook --agent claude --event notification --message \"$CLAUDE_NOTIFICATION\"" }]
       }
     ]
   }
@@ -118,16 +118,16 @@ Add to `~/.claude/settings.json`:
 
 ### Wrap command (any agent)
 
-For agents without hook support, wrap them so tmux.peek knows when they start and stop:
+For agents without hook support, wrap them so tmuxpeek knows when they start and stop:
 
 ```bash
-tmux.peek wrap aider -- aider --model gpt-4o
+tmuxpeek wrap aider -- aider --model gpt-4o
 ```
 
 <a id="configuration"></a>
 ## Configuration
 
-Run `tmux.peek config --init` to create `~/.config/tmux.peek/config.toml` with all options documented. The main knobs:
+Run `tmuxpeek config --init` to create `~/.config/tmuxpeek/config.toml` with all options documented. The main knobs:
 
 ```toml
 # Add custom agent binaries to detect
@@ -175,13 +175,13 @@ reason  = "deployed"
 
 ```bash
 # Bash
-tmux.peek completions bash >> ~/.bashrc
+tmuxpeek completions bash >> ~/.bashrc
 
 # Zsh
-tmux.peek completions zsh >> ~/.zshrc
+tmuxpeek completions zsh >> ~/.zshrc
 
 # Fish
-tmux.peek completions fish > ~/.config/fish/completions/tmux.peek.fish
+tmuxpeek completions fish > ~/.config/fish/completions/tmuxpeek.fish
 ```
 
 ## Development
