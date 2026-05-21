@@ -1,0 +1,23 @@
+[package]
+name = "tmux-peek"
+version = "0.1.0"
+edition = "2021"
+description = "A read-only Rust TUI that watches your coding agents in tmux and tells you which ones need your attention"
+authors = ["Cesar Ferreira"]
+license = "MIT"
+repository = "https://github.com/cesarferreira/peek"
+
+[[bin]]
+name = "tmuxpeek"
+path = "src/main.rs"
+
+[dependencies]
+ratatui = "0.28"
+crossterm = "0.28"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+regex = "1"
+strip-ansi-escapes = "0.2"
+chrono = { version = "0.4", features = ["serde"] }
