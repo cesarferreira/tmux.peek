@@ -1,14 +1,37 @@
 {
   "_comment": "Add these hooks to ~/.claude/settings.json or .claude/settings.json",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "tmux.peek hook --agent claude --event pre_tool_use"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
-        "command": "tmux.peek hook --agent claude --event stop"
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "tmux.peek hook --agent claude --event stop"
+          }
+        ]
       }
     ],
     "Notification": [
       {
-        "command": "tmux.peek hook --agent claude --event notification --message \"$CLAUDE_NOTIFICATION\""
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "tmux.peek hook --agent claude --event notification --message \"$CLAUDE_NOTIFICATION\""
+          }
+        ]
       }
     ]
   }

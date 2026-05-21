@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use crate::config::Config;
 use crate::types::AgentStatus;
 use regex::Regex;
@@ -219,13 +221,176 @@ fn check_running(lines: &[String], is_agent: bool) -> Option<ClassificationResul
     }
 
     if is_agent && !lines.is_empty() {
+        // Use the last meaningful output line as the reason instead of "agent active"
+        let last_line = last_meaningful_line(lines).unwrap_or_else(|| "agent active".to_string());
         return Some(ClassificationResult {
             status: AgentStatus::Running,
-            reason: "agent active".to_string(),
+            reason: last_line,
             confidence: 0.58,
         });
     }
 
+    None
+}
+
+/// Extract the best available activity description from pane output.
+fn last_meaningful_line(lines: &[String]) -> Option<String> {
+    // Try agent-specific extractors first (they produce clean, structured reasons)
+    if let Some(r) = extract_claude_code_activity(lines) {
+        return Some(r);
+    }
+    if let Some(r) = extract_opencode_activity(lines) {
+        return Some(r);
+    }
+
+    // Generic fallback: scan up to 40 lines in reverse, skip TUI chrome and bare path fragments
+    lines
+        .iter()
+        .rev()
+        .take(40)
+        .map(|l| l.trim())
+        .find(|t| {
+            !is_tui_chrome(t)
+                && t.chars().filter(|c| c.is_alphabetic()).count() >= 4
+        })
+        .map(|t| truncate(t, 55))
+}
+
+fn is_tui_chrome(line: &str) -> bool {
+    let t = line.trim();
+    if t.is_empty() || t.len() < 3 {
+        return true;
+    }
+    // Separator / drawing lines (horizontal rules, box-drawing, block fill)
+    let non_drawing = t.chars().filter(|c| {
+        !matches!(*c,
+            '-' | '=' | ' ' | '·' | '•'
+            | '─' | '━' | '╌' | '┄' | '╍' | '┅'
+            | '▀' | '▄' | '█' | '░' | '▒' | '▓'
+            | '╹' | '╸' | '╺' | '╻' | '┃' | '│' | '┤' | '├'
+        )
+    }).count();
+    if non_drawing == 0 { return true; }
+
+    // Lines where ≥80 % of chars are block/drawing characters → TUI frame
+    let total = t.chars().count();
+    let drawing = total - non_drawing;
+    if total > 4 && drawing * 100 / total >= 80 { return true; }
+
+    // Claude Code TUI chrome
+    if t.contains("bypass permissions on") { return true; }
+    if t.contains("shift+tab to cycle") { return true; }
+    if t.contains("autoAcceptEdits") { return true; }
+    if t.starts_with(">>") && t.contains("mode") { return true; }
+    if t.starts_with("cwd:") { return true; }
+    if t.starts_with("No MCP servers") { return true; }
+    if t.contains("tokens left") { return true; }
+    // Claude Code bottom status bar
+    if t.starts_with("Model:") { return true; }
+    if t.contains("Cost: $") { return true; }
+    if t.contains("Ctx:") && t.contains("Cost:") { return true; }
+    // Claude Code tool result headers — useful only via extract_claude_code_activity,
+    // not for the generic fallback which would pick up random prose from these lines
+    if t.starts_with("⏺") { return true; }
+    // Word-wrapped path continuation fragments (e.g. "/config)" from a long recap line)
+    if t.starts_with('/') && !t.contains(' ') { return true; }
+
+    // OpenCode TUI chrome — status bar fragments
+    if t.contains("ctrl+p commands") { return true; }
+    if t.contains("• OpenCode") { return true; }
+    if Regex::new(r"^\d+\.\d+K \(\d+%\)").unwrap().is_match(t) { return true; }
+
+    // Bare prompts or prompt+typed input ("❯ create a pr", "› some cmd")
+    if matches!(t, "$" | "%" | "#" | ">" | "❯" | "›") {
+        return true;
+    }
+    if t.starts_with("❯ ") || t.starts_with("› ") {
+        return true;
+    }
+
+    false
+}
+
+/// Extract a clean activity string from Claude Code's pane output.
+fn extract_claude_code_activity(lines: &[String]) -> Option<String> {
+    static BULLET_RE: OnceLock<Regex> = OnceLock::new();
+    static TOOL_RE: OnceLock<Regex> = OnceLock::new();
+    static COGITATE_RE: OnceLock<Regex> = OnceLock::new();
+
+    // Claude Code uses ⏺ (U+23FA) as tool header indicator
+    let bullet_re = BULLET_RE.get_or_init(|| {
+        Regex::new(r"⏺\s+(Read|Write|Edit|Update|Bash|Create|Delete|List|Search|Glob|Grep|Task|Agent|TodoWrite|TodoRead)\((.{0,60})\)").unwrap()
+    });
+    // Start-of-line only — prevents matching conversational prose mid-sentence
+    let tool_re = TOOL_RE.get_or_init(|| {
+        Regex::new(r"(?i)^(?:running|editing|reading|writing|creating|deleting)\s+\S.{0,50}$").unwrap()
+    });
+    // "✻ Cogitated for 18s" — thinking phase indicator
+    let cogitate_re = COGITATE_RE.get_or_init(|| {
+        Regex::new(r"✻\s+Cogitated for (.+)").unwrap()
+    });
+
+    for line in lines.iter().rev().take(40) {
+        let t = line.trim();
+
+        // ⏺ tool headers — skip is_tui_chrome since these are filtered there but useful here
+        if let Some(cap) = bullet_re.captures(t) {
+            let arg = truncate(cap[2].trim(), 40);
+            return Some(format!("{} {}", cap[1].to_lowercase(), arg));
+        }
+        // ※ recap: <summary text> — extract the summary
+        if let Some(rest) = t.strip_prefix("※ recap:") {
+            let summary = rest.trim();
+            if !summary.is_empty() {
+                return Some(truncate(summary, 55));
+            }
+        }
+        // ✻ Cogitated for Xs
+        if let Some(cap) = cogitate_re.captures(t) {
+            return Some(format!("thinking ({})", cap[1].trim()));
+        }
+
+        if is_tui_chrome(t) { continue; }
+
+        if let Some(m) = tool_re.find(t) {
+            return Some(truncate(m.as_str(), 55));
+        }
+        if t.starts_with("$ ") && t.len() > 4 {
+            return Some(truncate(&format!("running: {}", &t[2..]), 55));
+        }
+    }
+    None
+}
+
+/// Extract a clean activity string from OpenCode's pane output.
+fn extract_opencode_activity(lines: &[String]) -> Option<String> {
+    static FILE_RE: OnceLock<Regex> = OnceLock::new();
+    static TASK_RE: OnceLock<Regex> = OnceLock::new();
+
+    // "some/file.ext  119.9K (30%)  ctrl+p commands" → "editing file.ext"
+    let file_re = FILE_RE.get_or_init(|| {
+        Regex::new(r"^(\S+\.\w+)\s+\d+\.\d+[KMG]").unwrap()
+    });
+
+    // "▣  Build · GPT-5.5 Fast · 2m 9s"  or  "┃  Build · GPT-5.5 Fast OpenAI · high"
+    // → first dot-segment is the task name
+    let task_re = TASK_RE.get_or_init(|| {
+        Regex::new(r"[▣┃►]\s+([^·\n]{2,30})\s*·").unwrap()
+    });
+
+    for line in lines.iter().rev().take(15) {
+        let t = line.trim();
+        if let Some(cap) = file_re.captures(t) {
+            return Some(format!("editing {}", &cap[1]));
+        }
+        if let Some(cap) = task_re.captures(t) {
+            let task = cap[1].trim();
+            // Attach timing if present: "2m 9s" or "42s"
+            let timing = Regex::new(r"\b(\d+m \d+s|\d+s)\b").ok()
+                .and_then(|re| re.find(t).map(|m| format!(" ({})", m.as_str())));
+            return Some(format!("{}{}", task, timing.unwrap_or_default()));
+        }
+    }
     None
 }
 
@@ -272,15 +437,11 @@ fn matches_pattern(text: &str, pattern: &str) -> bool {
 }
 
 fn truncate(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
+    let chars: Vec<char> = s.chars().collect();
+    if chars.len() <= max_len {
         s.to_string()
     } else {
-        let cut = s.char_indices()
-            .take(max_len)
-            .last()
-            .map(|(i, _)| i + 1)
-            .unwrap_or(max_len);
-        format!("{}…", &s[..cut])
+        format!("{}…", chars[..max_len.saturating_sub(1)].iter().collect::<String>())
     }
 }
 

@@ -3,6 +3,7 @@ use chrono::Utc;
 
 use crate::cache;
 use crate::classifier::{self, is_known_agent_with_extras, is_shell};
+use crate::commands::hook as hook_cmd;
 use crate::commands::wrap as wrap_cmd;
 use crate::config::Config;
 use crate::git;
@@ -85,10 +86,20 @@ pub fn scan_with_config(config: &Config) -> Result<State> {
 
         let now = Utc::now();
 
-        // Preserve status_since if the status hasn't changed
+        // Hook activity records take priority over heuristic classification reason
+        let (final_status, final_reason, final_confidence) =
+            if let Some(act) = hook_cmd::load_activity(&raw.pane_id, 60) {
+                (crate::types::AgentStatus::Running, act.activity, 0.97_f32)
+            } else {
+                (classification.status, classification.reason, classification.confidence)
+            };
+
+        // Preserve status_since only if both status and reason are unchanged
         let status_since = prev_map
             .get(raw.pane_id.as_str())
-            .filter(|prev| prev.status == classification.status)
+            .filter(|prev| {
+                prev.status == final_status && prev.status_reason == final_reason
+            })
             .map(|prev| prev.status_since)
             .unwrap_or(now);
 
@@ -102,9 +113,9 @@ pub fn scan_with_config(config: &Config) -> Result<State> {
             cwd: raw.current_path,
             repo: git_info.repo_name,
             branch: git_info.branch,
-            status: classification.status,
-            status_reason: classification.reason,
-            confidence: classification.confidence,
+            status: final_status,
+            status_reason: final_reason,
+            confidence: final_confidence,
             last_output_lines: output_lines_raw,
             last_seen: now,
             status_since,

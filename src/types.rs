@@ -87,11 +87,7 @@ impl AgentPane {
     }
 
     pub fn reason_display(&self) -> String {
-        if self.confidence < 0.65 {
-            format!("{} ({:.0}%)", self.status_reason, self.confidence * 100.0)
-        } else {
-            self.status_reason.clone()
-        }
+        self.status_reason.clone()
     }
 }
 
