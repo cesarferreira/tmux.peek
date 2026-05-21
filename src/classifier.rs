@@ -253,7 +253,7 @@ fn last_meaningful_line(lines: &[String]) -> Option<String> {
             !is_tui_chrome(t)
                 && t.chars().filter(|c| c.is_alphabetic()).count() >= 4
         })
-        .map(|t| truncate(t, 55))
+        .map(|t| truncate(t, 200))
 }
 
 fn is_tui_chrome(line: &str) -> bool {
@@ -335,14 +335,14 @@ fn extract_claude_code_activity(lines: &[String]) -> Option<String> {
 
         // ⏺ tool headers — skip is_tui_chrome since these are filtered there but useful here
         if let Some(cap) = bullet_re.captures(t) {
-            let arg = truncate(cap[2].trim(), 40);
+            let arg = cap[2].trim().to_string();
             return Some(format!("{} {}", cap[1].to_lowercase(), arg));
         }
         // ※ recap: <summary text> — extract the summary
         if let Some(rest) = t.strip_prefix("※ recap:") {
             let summary = rest.trim();
             if !summary.is_empty() {
-                return Some(truncate(summary, 55));
+                return Some(summary.to_string());
             }
         }
         // ✻ Cogitated for Xs
@@ -353,10 +353,10 @@ fn extract_claude_code_activity(lines: &[String]) -> Option<String> {
         if is_tui_chrome(t) { continue; }
 
         if let Some(m) = tool_re.find(t) {
-            return Some(truncate(m.as_str(), 55));
+            return Some(m.as_str().to_string());
         }
         if t.starts_with("$ ") && t.len() > 4 {
-            return Some(truncate(&format!("running: {}", &t[2..]), 55));
+            return Some(format!("running: {}", &t[2..]));
         }
     }
     None

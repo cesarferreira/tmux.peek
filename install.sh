@@ -7,12 +7,12 @@ echo "Building release binary..."
 cargo build --release
 
 mkdir -p "$INSTALL_DIR"
-cp target/release/tmuxpeek "$INSTALL_DIR/tmuxpeek"
+cp target/release/tmux-peek "$INSTALL_DIR/tmux-peek"
 
-echo "Installed: $INSTALL_DIR/tmuxpeek"
+echo "Installed: $INSTALL_DIR/tmux-peek"
 echo ""
 echo "Make sure $INSTALL_DIR is in your PATH."
 echo ""
 echo "Add to ~/.tmux.conf:"
-echo "  bind-key G split-window -h -l 48 'tmuxpeek tui'"
-echo "  set -g status-right '#(tmuxpeek status) | %H:%M'"
+echo "  bind-key G split-window -h -l 48 'tmux-peek tui'"
+echo "  set -g status-right '#(tmux-peek status) | %H:%M'"
