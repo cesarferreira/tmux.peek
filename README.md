@@ -1,133 +1,89 @@
-# tmux.peek
+<div align="center">
+  <h1>tmux.peek</h1>
 
-> See which agent needs you before switching panes.
+  <p><strong>See which AI coding agents need you — without switching panes.</strong></p>
 
-A read-only, zero-config Rust TUI that watches your coding agents in tmux and tells you which ones need your attention — without you having to switch panes.
+  <p>
+    <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
+    <img alt="Built with Rust" src="https://img.shields.io/badge/built%20with-Rust-orange">
+  </p>
 
-```
-╭─ tmux.peek ─────────────────────────────────── 6 agents · 2 need you ─╮
-│                                                                         │
-│  NEEDS ATTENTION                                                  [2]   │
-│  ───────────────────────────────────────────────────────────────────   │
-│  ▶ claude   stax        fix/undo-copy   03m   approve: run cargo test? │
-│    codex    backend     feat/auth       11m   waiting: confirm patch    │
-│                                                                         │
-│  RUNNING                                                          [3]   │
-│  ───────────────────────────────────────────────────────────────────   │
-│    claude   byedroid    ui/logcat-filter  14s  editing src/filter.rs   │
-│    codex    mobile      fix/nav-crash     41s  running cargo test       │
-│    hermes   brain       –                 2m   writing daily report     │
-│                                                                         │
-│  DONE                                                             [1]   │
-│  ───────────────────────────────────────────────────────────────────   │
-│    claude   scripts     main            08m   task complete             │
-│                                                                         │
-╰─────────────────────────────────────────────────────────────────────── ╯
-╭─ preview · stax · %12 ──────────────────────────────────────────────── ╮
-│  ✓ clippy passed                                                         │
-│  ✓ cargo build                                                           │
-│                                                                         │
-│  Do you want to run the tests? [y/N] █                                  │
-╰─────────────────────────────────────────────────────────────────────── ╯
-  enter:jump  p:preview  s:snapshot  k:kill  /:filter  1:attn  2:all  q:quit
-```
+  <p>
+    <a href="#install">Install</a>
+    &nbsp;·&nbsp;
+    <a href="#quickstart">Quickstart</a>
+    &nbsp;·&nbsp;
+    <a href="#hooks">Hooks</a>
+    &nbsp;·&nbsp;
+    <a href="#configuration">Configuration</a>
+  </p>
+
+  <br>
+
+  <img src="assets/recording.gif" width="880" alt="tmux.peek in action">
+</div>
+
+---
+
+## Why tmux.peek
+
+When you're running multiple AI agents across tmux panes — Claude Code, OpenCode, Aider, Codex — you constantly switch between them to check if they're still working or waiting for input. **tmux.peek** watches all of them and tells you which ones need your attention.
+
+- **Attention at a glance.** Agents blocked on a question, permission prompt, or error rise to the top.
+- **Live activity reasons.** See what each agent is actually doing: `edit main.rs`, `$ cargo build`, `Reviewed PR #360…`.
+- **Hook-powered accuracy.** Claude Code's `PreToolUse` hook writes activity directly — no guessing from output.
+- **ANSI preview pane.** Press `p` to see the agent's live terminal output, colors and all.
+- **Jump instantly.** Press `Enter` to switch focus to the selected agent's tmux pane.
+- **Zero config.** Detects Claude, Codex, Aider, OpenCode, Goose, Gemini, and more automatically.
 
 ## Install
 
 ```bash
-# Install from source
-git clone https://github.com/cesarferreira/peek
-cd peek
+git clone https://github.com/cesarferreira/tmux.peek
+cd tmux.peek
 bash install.sh
 ```
 
-This builds `tmuxpeek` and creates a `tmux.peek` symlink in `~/.local/bin`.
+This builds a release binary and installs it to `~/.local/bin/tmuxpeek` with a `tmux.peek` symlink. Make sure `~/.local/bin` is in your `PATH`.
 
-Or with cargo:
-
-```bash
-cargo install tmux-peek
-# Then create the symlink:
-ln -sf ~/.cargo/bin/tmuxpeek ~/.cargo/bin/tmux.peek
-```
-
-## Commands
-
-```bash
-tmux.peek                   # open TUI dashboard (default)
-tmux.peek list              # print table to stdout
-tmux.peek status            # one-line summary for tmux status-right
-tmux.peek snapshot          # pasteable Markdown summary
-tmux.peek snapshot --json   # machine-readable JSON
-tmux.peek watch             # continuously refresh list output
-```
-
-## Tmux integration
-
-Add to `~/.tmux.conf`:
+Add to `~/.tmux.conf` to open as a side pane or status line widget:
 
 ```tmux
-# Side pane (48 cols)
-bind-key G split-window -h -l 48 'tmux.peek tui --side-pane'
-
-# Popup
-bind-key g display-popup -E -w 90% -h 80% 'tmux.peek tui --popup'
-
-# Status line
+bind-key G split-window -h -l 48 'tmux.peek tui'
 set -g status-right '#(tmux.peek status) | %H:%M'
 ```
 
-Or use the plugin script:
+<a id="quickstart"></a>
+## Quickstart
 
-```tmux
-run-shell ~/.config/tmux/plugins/peek/tmux/peek.tmux
-```
-
-## Keyboard shortcuts
-
-| Key | Action |
-|-----|--------|
-| `↑` / `k` | Move up |
-| `↓` / `j` | Move down |
-| `Enter` | Jump to agent pane |
-| `p` | Toggle preview pane |
-| `s` | Save snapshot to /tmp |
-| `k` | Kill agent pane (with confirmation) |
-| `/` | Filter by name / repo / branch |
-| `1` | Show only agents needing attention |
-| `2` | Show all agents |
-| `r` / `F5` | Force refresh |
-| `q` / `Esc` | Quit |
-
-## Status classification
-
-| Status | Signals |
-|--------|---------|
-| `NEEDS ATTENTION` | `[y/N]` prompts, approval requests, blocked |
-| `RUNNING` | Spinner activity, keywords like "editing", "building" |
-| `DONE` | Completion phrases, returned to shell |
-| `ERROR` | Panic, non-zero exit, fatal errors |
-| `UNKNOWN` | Heuristics inconclusive |
-
-## Detected agents
-
-`claude`, `codex`, `aider`, `hermes`, `opencode`, `gemini`, `goose`, `amp`, `cursor`, `cline`
-
-## Reliable mode — `wrap`
-
-For 100% reliable agent identity (useful when agents run via wrapper scripts):
+Open the TUI inside your tmux session:
 
 ```bash
-# Instead of running claude directly, use:
-tmux.peek wrap claude
-
-# With arguments:
-tmux.peek wrap claude -- --model sonnet task.md
+tmux.peek
 ```
 
-The wrap command records the agent's identity in `~/.local/state/tmux.peek/wrapped/<pane>.json`. The scanner reads this file first, so identity is always correct regardless of the process tree.
+Check agent status in the terminal (no TUI):
 
-## Agent hook integration
+```bash
+tmux.peek list
+```
+
+Take a JSON snapshot of all agent panes:
+
+```bash
+tmux.peek snapshot
+```
+
+Watch continuously, refreshing every 5 seconds:
+
+```bash
+tmux.peek watch
+```
+
+<a id="hooks"></a>
+## Hooks
+
+Hooks give tmux.peek accurate, real-time activity data instead of relying on output parsing. When Claude Code calls a tool, it writes exactly what it's doing to tmux.peek's state — `edit main.rs`, `$ cargo test`, `web: docs.rust-lang.org` — and the TUI picks it up immediately.
 
 ### Claude Code
 
@@ -136,52 +92,105 @@ Add to `~/.claude/settings.json`:
 ```json
 {
   "hooks": {
-    "Stop": [{ "command": "tmux.peek hook --agent claude --event stop" }],
-    "Notification": [{ "command": "tmux.peek hook --agent claude --event notification --message \"$CLAUDE_NOTIFICATION\"" }]
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [{ "type": "command", "command": "tmux.peek hook --agent claude --event pre_tool_use", "timeout": 5 }]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [{ "type": "command", "command": "tmux.peek hook --agent claude --event stop" }]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [{ "type": "command", "command": "tmux.peek hook --agent claude --event notification --message \"$CLAUDE_NOTIFICATION\"" }]
+      }
+    ]
   }
 }
 ```
 
-See `hooks/claude-code-settings.json` for a ready-to-merge snippet.  
-When hooks fire, the cache updates immediately with confidence 0.99 — no waiting for the 5s scan cycle.
+`PreToolUse` fires on every tool call and updates the pane's activity reason. `Stop` marks the pane Done immediately. `Notification` marks it as needing attention.
 
-### OpenCode / Aider
+### Wrap command (any agent)
 
-See `hooks/opencode-notify.sh` and `hooks/aider-notify.sh`. The simplest approach for any agent is just `tmux.peek wrap <agent>`.
+For agents without hook support, wrap them so tmux.peek knows when they start and stop:
 
+```bash
+tmux.peek wrap aider -- aider --model gpt-4o
+```
+
+<a id="configuration"></a>
 ## Configuration
 
-```bash
-tmux.peek config --init   # write default config to ~/.config/tmux.peek/config.toml
-tmux.peek config          # show current settings
-tmux.peek config --show   # print config file contents
-```
-
-Example `~/.config/tmux.peek/config.toml`:
+Run `tmux.peek config --init` to create `~/.config/tmux.peek/config.toml` with all options documented. The main knobs:
 
 ```toml
-extra_agents = ["my-internal-bot"]
-exclude_sessions = ["scratch"]
-status_format = "minimal"   # emoji | text | minimal
+# Add custom agent binaries to detect
+extra_agents = ["my-agent", "llm-runner"]
 
+# Only watch specific tmux sessions
+session_filter = ["work", "side-project"]
+
+# Custom patterns that mark a pane as needing attention
 [[attention_patterns]]
-pattern = "waiting for review"
-reason  = "review needed"
+pattern = "(?i)awaiting review"
+reason  = "needs review"
+
+# Custom patterns that mark a pane as done
+[[done_patterns]]
+pattern = "(?i)deployment complete"
+reason  = "deployed"
 ```
 
-## Shell completions
+## Controls
+
+| Key | Action |
+|---|---|
+| `↑ / ↓` or `j / k` | Move selection |
+| `Enter` | Jump to agent's tmux pane |
+| `p` | Toggle preview pane |
+| `s` | Save JSON snapshot |
+| `k` | Kill agent pane (with confirmation) |
+| `/` | Filter by name |
+| `1` | Toggle attention-only view |
+| `r` | Force refresh |
+| `q` | Quit |
+
+## Status
+
+| Status | Meaning |
+|---|---|
+| `NEEDS ATTENTION` | Agent is asking a question or waiting for input |
+| `RUNNING` | Agent is actively working |
+| `DONE` | Agent finished or returned to shell |
+| `ERROR` | Crash, panic, or non-zero exit |
+| `UNKNOWN` | No clear signal yet |
+
+## Shell Completions
 
 ```bash
-# zsh
-tmux.peek completions zsh >> ~/.zshrc
-
-# bash
+# Bash
 tmux.peek completions bash >> ~/.bashrc
 
-# fish
+# Zsh
+tmux.peek completions zsh >> ~/.zshrc
+
+# Fish
 tmux.peek completions fish > ~/.config/fish/completions/tmux.peek.fish
 ```
 
-## What it is not
+## Development
 
-Not an orchestrator. Not a web dashboard. Not another agent runner. Read-only by default (except `kill`).
+```bash
+cargo build
+cargo test
+```
+
+## License
+
+MIT &copy; Cesar Ferreira
